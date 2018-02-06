@@ -11,24 +11,26 @@
 #include <chrono>
 #include <memory>
 #include <mutex>
+#include <string>
 
 #include "GPIO.h"
 
-template<typename T>
+
 class PWM {
 private:
-	T period, duty;
-	std::unique_ptr<std::thread> my_thread;
 	std::string pin;
+	std::chrono::microseconds period, duty;
+	std::unique_ptr<std::thread> my_thread;
+
+	int first_toggle, second_toggle;
 	std::mutex pwm_mutex;
 	void process();
-	void measure_period(T period);
 
 public:
 
 
-	PWM(std::string pwm_pin, T period, T duty);
-	void set_duty(T new_duty);
+	PWM(std::string pwm_pin, std::chrono::microseconds period, std::chrono::microseconds duty, bool toggle);
+	void set_duty(std::chrono::microseconds new_duty);
 	virtual ~PWM();
 };
 

@@ -7,54 +7,57 @@
 
 #include "PWM.h"
 
-template<class T>
-PWM<T>::PWM(std::string pwm_pin, T period, T duty) : pin(pwm_pin), period(period), duty(duty)
+
+PWM::PWM(std::string pwm_pin, std::chrono::microseconds period, std::chrono::microseconds duty, bool toggle) : pin(pwm_pin), period(period), duty(duty)
 {
-	gpio_export(pwm_pin, "low");
-	my_thread.reset(new std::thread(&PWM<T>::process, this));
+	if(toggle)
+	{
+		gpio_export(pwm_pin, "high");
+		first_toggle = 0;
+		second_toggle = 1;
+	}
+	else
+	{
+		gpio_export(pwm_pin, "low");
+		first_toggle = 1;
+		second_toggle = 0;
+	}
+
+	my_thread.reset(new std::thread(&PWM::process, this));
 
 }
-template<class T>
-PWM<T>::~PWM()
+
+PWM::~PWM()
 {
 	// TODO Auto-generated destructor stub
 	my_thread->join();
 }
 
-template<class T>
-void PWM<T>::process()
+void PWM::process()
 {
 	while(1)
 	{
-		std::thread Th_period(&PWM<T>::measure_period, this, period);
+		std::thread Th_period([=](){std::this_thread::sleep_for(period);});
 
-		gpio_set_value(pin, "1");
+		gpio_set_value(pin, std::to_string(first_toggle));
 
 		std::unique_lock<std::mutex> lock(pwm_mutex);
 		lock.lock();
 		std::this_thread::sleep_for(duty);
 		lock.unlock();
-		gpio_set_value(pin, "0");
+		gpio_set_value(pin, std::to_string(second_toggle));
 
 		Th_period.join();
 	}
 }
 
-template<class T>
-void PWM<T>::measure_period(T period)
-{
-	std::this_thread::sleep_for(period);
-}
 
-template<class T>
-void PWM<T>::set_duty(T new_duty)
+void PWM::set_duty(std::chrono::microseconds new_duty)
 {
 	std::unique_lock<std::mutex> lock(pwm_mutex);
 	lock.lock();
 	if(new_duty > period)
 		duty = period;
-	else if(new_duty < 0)
-		duty = 0;
 	else
 		duty = new_duty;
 
