@@ -29,7 +29,6 @@ PWM::PWM(std::string pwm_pin, std::chrono::microseconds period, std::chrono::mic
 
 PWM::~PWM()
 {
-	// TODO Auto-generated destructor stub
 	my_thread->join();
 }
 
@@ -37,30 +36,31 @@ void PWM::process()
 {
 	while(1)
 	{
-		std::thread Th_period([=](){std::this_thread::sleep_for(period);});
+		if(duty > std::chrono::microseconds(0))
+		{
+			gpio_set_value(pin, std::to_string(first_toggle));
+			pwm_mutex.lock();
+			std::this_thread::sleep_for(duty);
+			pwm_mutex.unlock();
+		}
 
-		gpio_set_value(pin, std::to_string(first_toggle));
+		if(duty < period)
+		{
+			gpio_set_value(pin, std::to_string(second_toggle));
+			std::this_thread::sleep_for(period - duty);
+		}
 
-		std::unique_lock<std::mutex> lock(pwm_mutex);
-		lock.lock();
-		std::this_thread::sleep_for(duty);
-		lock.unlock();
-		gpio_set_value(pin, std::to_string(second_toggle));
-
-		Th_period.join();
 	}
 }
 
 
 void PWM::set_duty(std::chrono::microseconds new_duty)
 {
-	std::unique_lock<std::mutex> lock(pwm_mutex);
-	lock.lock();
+	std::lock_guard<std::mutex> lock(pwm_mutex);
 	if(new_duty > period)
 		duty = period;
 	else
 		duty = new_duty;
 
-	lock.unlock();
 }
 
